@@ -1,0 +1,297 @@
+#!/usr/bin/python 
+
+# gcode parser for blender 2.5 
+# Simon Kirkby
+# 201102051305
+# tigger@interthingy.com 
+
+import string,os
+import bpy
+import mathutils
+
+#file_name ='/home/zignig/cube_export.gcode'
+file_name = '/home/zignig/designs/stepper_mount/mount_export.gcode'
+
+extrusion_diameter = 0.4 
+
+class tool:
+    def __init__(self,name='null tool'):
+        self.name = name
+
+class move():
+    def __init__(self,pos):
+        self.pos = pos
+        p = []
+        p.append(self.pos['X'])
+        p.append(self.pos['Y'])
+        p.append(self.pos['Z'])
+        self.point = p
+    
+class fast_move(move):
+    def __init__(self,pos):
+        move.__init__(self,pos)
+        
+class tool_on:
+    def __init__(self,val):
+        pass
+
+class tool_off:
+    def __init__(self,val):
+        pass
+
+class layer:
+    def __init__(self):
+        print('layer')
+        pass
+
+class setting:
+    def __init__(self,val):
+        pass
+
+class set_temp(setting):
+    def __init__(self,val):
+        setting.__init__(self,val)
+ 
+class tool_change():
+    def __init__(self,val):
+        self.val = val
+
+class undef:
+    def __init__(self,val):
+        pass
+
+
+codes = {
+    'G':{
+        '0': fast_move,
+        '1': move,
+        '01' : move,
+        '04': undef,
+        '21': setting,
+        '28': setting, # go home
+        '92': setting, # not sure what this is 
+        '90': setting
+    },
+    'M':{
+        '01' : undef,
+        '6' : undef,
+        '101' : tool_on,
+        '103' : tool_off,
+        '104' : set_temp,
+        '105' : undef,
+        '106' : undef,
+        '107' : undef,
+        '108' : undef,
+        '109' : undef, # what is this ? 
+        '113' : undef, # what is this ? 
+        '115' : undef, # what is this ? 
+        '116' : undef, # what is this ? 
+        '117' : undef # what is this ? 
+    },
+    'T':{
+        '0;' : tool_change
+    }
+}
+
+class driver:
+    # takes action object list and runs through it 
+    def __init__(self):
+        pass
+    
+    def drive(self):
+        pass 
+    
+    def load_data(self,data):
+        self.data = data
+
+    
+def vertsToPoints(Verts):
+    # main vars
+    vertArray = []
+    for v in Verts:
+        vertArray += v
+        vertArray.append(0)
+    return vertArray
+
+def create_poly(verts,counter):
+    splineType = 'POLY'
+    name = 'skein'+str(counter) 
+    pv = vertsToPoints(verts)
+    # create curve
+    scene = bpy.context.scene
+    newCurve = bpy.data.curves.new(name, type = 'CURVE')
+    newSpline = newCurve.splines.new(type = splineType)
+    newSpline.points.add(int(len(pv)*0.25 - 1))
+    newSpline.points.foreach_set('co',pv)
+    newSpline.use_endpoint_u = True
+    
+    # create object with newCurve
+    newCurve.bevel_object = bpy.data.objects['profile']
+    newCurve.dimensions = '3D'
+    new_obj = bpy.data.objects.new(name, newCurve) # object
+    scene.objects.link(new_obj) # place in active scene
+    return new_obj
+    
+class blender_driver(driver):
+     def __init__(self):
+         driver.__init__(self)
+         
+     def drive(self):
+
+    
+        
+        print('building curves')
+        # info 
+        count = 0 
+        for i in self.data:
+            if isinstance(i,layer):
+                count += 1
+        print('has '+str(count)+' layers')
+        
+        
+        print('createing poly lines')
+        if 'profile' in bpy.data.objects:
+            print('profile exisits')
+        else:
+            bpy.ops.curve.primitive_bezier_circle_add()
+            curve = bpy.context.selected_objects[0]
+            d = extrusion_diameter
+            curve.scale = [d,d,d]
+            curve.name = 'profile'
+            curve.data.resolution_u = 2
+            curve.data.render_resolution_u = 2
+            
+        poly = []
+        layers = []
+        this_layer = []
+        counter = 1
+        global thing
+        for i in m.commands:
+            if isinstance(i,move):
+                #print(i.point)
+                poly.append(i.point)
+            if isinstance(i,tool_off):
+                if len(poly) > 0:
+                    counter += 1
+                    pobj = create_poly(poly,counter)
+                    this_layer.append(pobj)
+                poly = []
+            if isinstance(i,layer):
+                print('layer '+str(len(layers)))
+                layers.append(this_layer)
+                this_layer = []
+        layers.append(this_layer)
+        
+        print('animating build')
+        
+        s = bpy.context.scene
+        # make the material 
+        if 'Extrusion' in bpy.data.materials:
+            mt = bpy.data.materials['Extrusion']
+        else:
+            # make new material
+            bpy.ops.material.new()
+            mt = bpy.data.materials[-1]
+            mt.name = 'Extrusion'
+        
+        s.frame_end = len(layers)
+        # hide everything at frame 0
+        s.frame_set(0)
+        
+        for i in range(len(layers)):
+            for j in layers[i]:
+                j.hide = True
+                j.hide_render = True
+                j.keyframe_insert("hide")
+                j.keyframe_insert("hide_render")
+                # assign the material 
+                j.active_material = mt
+        
+        # go through the layers and make them reappear
+        for i in range(len(layers)):
+            s.frame_set(i)
+            print('frame '+str(i))
+            for j in layers[i]:
+                j.hide = False
+                j.hide_render = False
+                j.keyframe_insert("hide")
+                j.keyframe_insert("hide_render")
+
+
+class machine:
+
+    def __init__(self,axes):
+        self.axes = axes
+        self.axes_num = len(axes)
+        self.data = []
+        self.cur = {} 
+        self.tools = []
+        self.commands = []
+        self.driver = driver()
+
+    def add_tool(self,the_tool):
+        self.tools.append(the_tool)
+    
+    def import_file(self,file_name):
+        print('opening '+file_name)
+        f = open(file_name)
+        self.data = f.readlines()
+        f.close()
+        print(str(len(self.data))+' lines')
+
+    def process(self):
+        # zero up the machine
+        pos = {}
+        for i in self.axes:
+            pos[i] = 0
+            self.cur[i] = 0
+        for i in self.data:
+            i = i.strip()
+            #print(i)   
+            #print(pos)
+            tmp = i.split()
+            command = tmp[0][0]
+            com_type = tmp[0][1:]
+            if command in codes:
+                if com_type in codes[command]:
+                    #print('good =>'+command+com_type)
+                    for j in tmp[1:]:
+                        axis = j[0]
+                        if axis == ';':
+                            # ignore comments
+                            break
+                        if axis in self.axes:
+                            val = float(j[1:])
+                            pos[axis] = val
+                            if self.cur['Z'] != pos['Z']:
+                                self.commands.append(layer())
+                            self.cur[axis] = val
+                    # create action object
+                    #print(pos)
+                    act = codes[command][com_type](pos)
+                    #print(act)
+                    self.commands.append(act)
+                    #if isinstance(act,move):
+                        #print(act.coord())
+                else:
+                    print(i)
+                    print('bad com ' + com_type)
+                    break
+            else:
+                
+                print('no code '+ str(command))
+                break
+
+m = machine(['X','Y','Z','F','S'])
+m.import_file(file_name)
+m.process()
+d = blender_driver()
+d.load_data(m.commands)
+d.drive()
+print('finishing parsing')
+
+
+        
+    
+
+    
