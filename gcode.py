@@ -5,12 +5,15 @@
 # 201102051305
 # tigger@interthingy.com 
 
+#modified by David Anderson to handle Skeinforge comments
+# Thanks Simon!!!
+
 import string,os
 import bpy
 import mathutils
 
 #file_name ='/home/zignig/cube_export.gcode'
-file_name = '/home/zignig/designs/stepper_mount/mount_export.gcode'
+file_name = 'c:/davelandia/blender/bre_in.gcode'
 
 extrusion_diameter = 0.4 
 
@@ -62,6 +65,21 @@ class undef:
 
 
 codes = {
+    '(':{
+        '</surroundingLoop>)' : undef,
+        '<surroundingLoop>)' : undef,
+        '<boundaryPoint>' : undef,
+        '<loop>)' : undef,
+        '</loop>)' : undef,
+        '<layer>)' : undef,
+        '</layer>)' : undef,
+        '<layer>' : undef,
+        '<perimeter>)' : undef,
+        '</perimeter>)' : undef, 
+        '<bridgelayer>)' : undef,
+        '</bridgelayer>)' : undef,
+        '</extrusion>)' :undef                     
+    },
     'G':{
         '0': fast_move,
         '1': move,
@@ -231,13 +249,42 @@ class machine:
 
     def add_tool(self,the_tool):
         self.tools.append(the_tool)
+        
+    def remove_comments(self):
+        tempd=[]
+        for st in self.data:
+            startcommentidx= st.find('(')
+            if startcommentidx == 0 :  #line begins with a comment 
+                split1=st.partition(')')
+                st = ''
+            if startcommentidx > 0:   # line has an embedded comment to remove
+                split1=st.partition('(')
+                split2=split1[2].partition(')')
+                st = split1[0]+split2[2]
+            if st != '':    
+                tempd.append(st)
+            #print("...>",st)
+        self.data=tempd
+        
     
+
     def import_file(self,file_name):
         print('opening '+file_name)
         f = open(file_name)
-        self.data = f.readlines()
+        #for line in f:
+        #    self.data.append(self.remove_comments(line))
+        self.data=f.readlines()
         f.close()
+        self.remove_comments()
+        
+        # uncomment to see the striped file
+        #k = open('c:/davelandia/blender/out1.txt','w')
+        #k.writelines(self.data)
+        #k.close()
+        
         print(str(len(self.data))+' lines')
+        
+                
 
     def process(self):
         # zero up the machine
@@ -246,8 +293,8 @@ class machine:
             pos[i] = 0
             self.cur[i] = 0
         for i in self.data:
-            i = i.strip()
-            #print(i)   
+            i=i.strip()
+            print( "Parsing Gcode line ", i)   
             #print(pos)
             tmp = i.split()
             command = tmp[0][0]
@@ -275,12 +322,12 @@ class machine:
                         #print(act.coord())
                 else:
                     print(i)
-                    print('bad com ' + com_type)
-                    break
+                    print(' G/M/T Code for this line is unknowm ' + com_type)
+                    #break
             else:
                 
-                print('no code '+ str(command))
-                break
+                print(' line does not have a G/M/T Command '+ str(command))
+                #break
 
 m = machine(['X','Y','Z','F','S'])
 m.import_file(file_name)
@@ -288,10 +335,4 @@ m.process()
 d = blender_driver()
 d.load_data(m.commands)
 d.drive()
-print('finishing parsing')
-
-
-        
-    
-
-    
+print('finished parsing... done')
