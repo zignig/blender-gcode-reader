@@ -4,3 +4,32 @@ reads reprap gcode files into blender 2.5 for rendering and visualization
 
 simon kirkby
 tigger@interthingy.com
+
+Instructions 
+
+get latest blender 
+
+http://www.blender.org/download/get-256-beta/
+
+open blender
+Select
+	File Menu
+	User Preferences CTL-ALT-U
+	Select The Add-Ons Tab
+	Type gc into the search box
+	Select the check box on Import GCode for FDM
+
+if you want to keep it click to Save As Default
+
+Now there should be a menu item of 
+File
+	Import
+		Reprap GCode (.gcode)
+
+
+Select a file , watch the console for progress.
+
+Bask in the glory of your awesome small plastic thing.
+
+Simon
+
