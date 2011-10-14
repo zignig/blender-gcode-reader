@@ -1,6 +1,10 @@
-201102070914
 blender gcode reader 
 reads reprap gcode files into blender 2.5 for rendering and visualization
+
+modified by Alessandro Ranellucci (2011-10-14)
+to make it compatible with Blender 2.59
+and with modern 5D GCODE
+
 
 simon kirkby
 tigger@interthingy.com

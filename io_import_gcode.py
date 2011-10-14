@@ -20,20 +20,20 @@
 
 import bpy 
 
-bl_addon_info = {
+bl_info = {
     'name': 'Import GCode for FDM .gcode',
     'author': 'Simon Kirkby',
     'version': (0,0,3),
     'blender': (2, 5, 6),
     'api': 32738,
-    'location': 'File > Import',
+    'location': 'File > Import-Export > Gcode',
     'description': 'Import gcode files for reprap FDM printers .gcode',
     'warning': 'may not work',
     "wiki_url": "",
     "tracker_url": "",
     'category': 'Import-Export'}
 
-__version__ = '.'.join([str(s) for s in bl_addon_info['version']])
+__version__ = '.'.join([str(s) for s in bl_info['version']])
 
 # gcode parser for blender 2.5 
 # Simon Kirkby
@@ -42,6 +42,10 @@ __version__ = '.'.join([str(s) for s in bl_addon_info['version']])
 
 #modified by David Anderson to handle Skeinforge comments
 # Thanks Simon!!!
+
+# modified by Alessandro Ranellucci (2011-10-14)
+# to make it compatible with Blender 2.59
+# and with modern 5D GCODE
 
 import string,os
 import bpy
@@ -167,13 +171,12 @@ def vertsToPoints(Verts):
     return vertArray
 
 def create_poly(verts,counter):
-    splineType = 'POLY'
     name = 'skein'+str(counter) 
     pv = vertsToPoints(verts)
     # create curve
     scene = bpy.context.scene
     newCurve = bpy.data.curves.new(name, type = 'CURVE')
-    newSpline = newCurve.splines.new(type = splineType)
+    newSpline = newCurve.splines.new('POLY')
     newSpline.points.add(int(len(pv)*0.25 - 1))
     newSpline.points.foreach_set('co',pv)
     newSpline.use_endpoint_u = True
@@ -226,6 +229,7 @@ class blender_driver(driver):
             if isinstance(i,tool_off):
                 if len(poly) > 0:
                     counter += 1
+                    print('creating poly ' + str(counter))
                     pobj = create_poly(poly,counter)
                     this_layer.append(pobj)
                 poly = []
@@ -347,10 +351,14 @@ class machine:
                             pos[axis] = val
                             if self.cur['Z'] != pos['Z']:
                                 self.commands.append(layer())
+                                self.commands.append(tool_off(pos))
                             self.cur[axis] = val
                     # create action object
                     #print(pos)
-                    act = codes[command][com_type](pos)
+                    if (pos['E'] == 0):
+                        act = tool_off(pos)
+                    else:
+                        act = codes[command][com_type](pos)
                     #print(act)
                     self.commands.append(act)
                     #if isinstance(act,move):
@@ -363,10 +371,11 @@ class machine:
                 
                 print(' line does not have a G/M/T Command '+ str(command))
                 #break
+        self.commands.append(tool_off(pos))
 
 def import_gcode(file_name):
     print('hola')
-    m = machine(['X','Y','Z','F','S'])
+    m = machine(['X','Y','Z','E'])
     m.import_file(file_name)
     m.process()
     d = blender_driver()
@@ -475,12 +484,14 @@ class IMPORT_OT_gcode(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
 def menu_func(self, context):
-    self.layout.operator(IMPORT_OT_gcode.bl_idname, text="Reprap GCode (.gcode)")
+    self.layout.operator(IMPORT_OT_gcode.bl_idname, text="Reprap GCode (.gcode)").filepath = "*.gcode"
 
 def register():
-     bpy.types.INFO_MT_file_import.append(menu_func)
+    bpy.utils.register_module(__name__)
+    bpy.types.INFO_MT_file_import.append(menu_func)
  
 def unregister():
+    bpy.utils.unregister_module(__name__)
     bpy.types.INFO_MT_file_import.remove(menu_func)
 
 if __name__ == "__main__":
