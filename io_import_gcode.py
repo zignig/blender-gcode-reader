@@ -23,12 +23,11 @@ import bpy
 bl_info = {
     'name': 'Import GCode for FDM .gcode',
     'author': 'Simon Kirkby',
-    'version': (0,0,3),
+    'version': (0,0,4),
     'blender': (2, 5, 6),
     'api': 32738,
     'location': 'File > Import-Export > Gcode',
-    'description': 'Import gcode files for reprap FDM printers .gcode',
-    'warning': 'may not work',
+    'description': 'Import and visualize gcode files for Makerbot printers (.gcode)',
     "wiki_url": "",
     "tracker_url": "",
     'category': 'Import-Export'}
@@ -47,14 +46,14 @@ __version__ = '.'.join([str(s) for s in bl_info['version']])
 # to make it compatible with Blender 2.59
 # and with modern 5D GCODE
 
+# Modified by Winter Guerra (XtremD) on February 16th, 2012
+# to make the script compatable with stock Makerbot GCode files
+# and grab all nozzle extrusion information from Skeinforge's machine output
+# WARNING: This script no longer works with stock 5D GCode! (Would somebody please integrate the two versions together?)
+
 import string,os
 import bpy
 import mathutils
-
-#file_name ='/home/zignig/cube_export.gcode'
-#file_name = 'c:/davelandia/blender/bre_in.gcode'
-
-extrusion_diameter = 0.4
 
 
 class tool:
@@ -91,12 +90,16 @@ class setLayerHeight:
     def __init__(self,val):
         print('Got layer height: ')
         print(val)
+        
+        machine.extrusion_height = val
         pass
 
 class setExtrusionWidth:
     def __init__(self,val):
         print('Got extrusion width')
         print(val)
+        
+        machine.extrusion_width = val
         pass
 
 class layer:
@@ -181,9 +184,9 @@ def create_poly(verts,counter):
     # create curve
     scene = bpy.context.scene
     newCurve = bpy.data.curves.new(name, type = 'CURVE')
-    newSpline = newCurve.splines.new('POLY')
-    newSpline.use_endpoint_u = True
-    newSpline.points.add(int((len(pv)/4) - 1))
+    
+    newSpline = newCurve.splines.new('BEZIER')
+    newSpline.points.add(float((len(pv)/4) - 1))
     newSpline.points.foreach_set('co',pv)
     
     # create object with newCurve
@@ -210,14 +213,14 @@ class blender_driver(driver):
         print('has '+str(count)+' layers')
         
         
-        print('createing poly lines')
+        print('creating poly lines')
         if 'profile' in bpy.data.objects:
             print('profile exists')
         else:
             bpy.ops.curve.primitive_bezier_circle_add()
             curve = bpy.context.selected_objects[0]
-            d = extrusion_diameter
-            curve.scale = [d,d,d]
+            #Get the extrusion width and height from our cached values (taken from skeinforge comments in our GCode file)
+            curve.dimensions = [float(machine.extrusion_width),float(machine.extrusion_height),0]
             curve.name = 'profile'
             curve.data.resolution_u = 2
             curve.data.render_resolution_u = 2
@@ -259,6 +262,9 @@ class blender_driver(driver):
             bpy.ops.material.new()
             mt = bpy.data.materials[-1]
             mt.name = 'Extrusion'
+            #mt.diffuse_shader = 'MINNAERT'
+            #mat.diffuse_color = (0.0, 0.0, 0.200)
+            #mat.darkness = 0.8
         
         s.frame_end = len(layers)
         # hide everything at frame 0
@@ -287,8 +293,8 @@ class blender_driver(driver):
 class machine:
     
     extruder = False
-    
-    extrusionSize = []
+    extrusion_height = 5
+    extrusion_width = 5
 
     def __init__(self,axes):
         self.axes = axes
