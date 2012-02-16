@@ -182,10 +182,9 @@ def create_poly(verts,counter):
     scene = bpy.context.scene
     newCurve = bpy.data.curves.new(name, type = 'CURVE')
     newSpline = newCurve.splines.new('POLY')
-    #newSpline.use_cyclic_v = True #Not really needed and takes up a TON of CPU
+    newSpline.use_endpoint_u = True
     newSpline.points.add(int((len(pv)/4) - 1))
     newSpline.points.foreach_set('co',pv)
-    newSpline.use_endpoint_u = True
     
     # create object with newCurve
     newCurve.bevel_object = bpy.data.objects['profile']
@@ -309,14 +308,15 @@ class machine:
             startcommentidx= st.find('(')
             if startcommentidx == 0 :  #line begins with a comment 
                 split1=st.partition(')')
-                st = ''
+                st = split1[0]
             if startcommentidx > 0:   # line has an embedded comment to remove
                 split1=st.partition('(')
                 split2=split1[2].partition(')')
                 st = split1[0]+split2[2]
+            #Do nothing if startcommentidx is -1 (not found)
             if st != '':    
                 tempd.append(st)
-            #print("...>",st)
+            #print("Cleaned out comment and left: ",st)
         self.data=tempd
         
     
@@ -391,17 +391,11 @@ class machine:
                             self.commands.append(act)
                     else:
                         #We have a skeinforge command
-                        codes [command] [com_type] (tmp[2])
+                        codes [command] [com_type] (tmp[1])
 
                 else:
                     print(i)
                     print(' G/M/T Code for this line is unknowm ' + com_type)
-                    
-                #elif commmand[0] in codes: #We got a probable skeinforge command!
-                        #if command[1:] in codes [command[0]]:
-                        #We did get a skeinforge command!
-                        #codes command[0] command[1: ] (pos)
-                        #print('Got a skeinforge command!')
             
             else:
                 print(' line does not have a G/M/T Command '+ str(command))
