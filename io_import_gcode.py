@@ -54,7 +54,8 @@ import mathutils
 #file_name ='/home/zignig/cube_export.gcode'
 #file_name = 'c:/davelandia/blender/bre_in.gcode'
 
-extrusion_diameter = 0.4 
+extrusion_diameter = 0.4
+
 
 class tool:
     def __init__(self,name='null tool'):
@@ -78,8 +79,13 @@ class tool_on:
         pass
 
 class tool_off:
-    def __init__(self,val):
-        pass
+    def __init__(self,pos):
+        self.pos = pos
+        p = []
+        p.append(self.pos['X'])
+        p.append(self.pos['Y'])
+        p.append(self.pos['Z'])
+        self.point = p
 
 class layer:
     def __init__(self):
@@ -104,49 +110,17 @@ class undef:
 
 
 codes = {
-    '(':{
-        '</surroundingLoop>)' : undef,
-        '<surroundingLoop>)' : undef,
-        '<boundaryPoint>' : undef,
-        '<loop>)' : undef,
-        '</loop>)' : undef,
-        '<layer>)' : undef,
-        '</layer>)' : undef,
-        '<layer>' : undef,
-        '<perimeter>)' : undef,
-        '</perimeter>)' : undef, 
-        '<bridgelayer>)' : undef,
-        '</bridgelayer>)' : undef,
-        '</extrusion>)' :undef                     
-    },
+    
     'G':{
-        '0': fast_move,
+        '0': move,
         '1': move,
-        '01' : move,
-        '04': undef,
-        '21': setting,
-        '28': setting, # go home
-        '92': setting, # not sure what this is 
-        '90': setting
+        '01' : move
+        
     },
     'M':{
-        '01' : undef,
-        '6' : undef,
         '101' : tool_on,
-        '103' : tool_off,
-        '104' : set_temp,
-        '105' : undef,
-        '106' : undef,
-        '107' : undef,
-        '108' : undef,
-        '109' : undef, # what is this ? 
-        '113' : undef, # what is this ? 
-        '115' : undef, # what is this ? 
-        '116' : undef, # what is this ? 
-        '117' : undef # what is this ? 
-    },
-    'T':{
-        '0;' : tool_change
+        '103' : tool_off
+        
     }
 }
 
@@ -177,7 +151,8 @@ def create_poly(verts,counter):
     scene = bpy.context.scene
     newCurve = bpy.data.curves.new(name, type = 'CURVE')
     newSpline = newCurve.splines.new('POLY')
-    newSpline.points.add(int(len(pv)*0.25 - 1))
+    #newSpline.use_cyclic_v = True #Not really needed and takes up a TON of CPU
+    newSpline.points.add(int((len(pv)/4) - 1))
     newSpline.points.foreach_set('co',pv)
     newSpline.use_endpoint_u = True
     
@@ -207,7 +182,7 @@ class blender_driver(driver):
         
         print('createing poly lines')
         if 'profile' in bpy.data.objects:
-            print('profile exisits')
+            print('profile exists')
         else:
             bpy.ops.curve.primitive_bezier_circle_add()
             curve = bpy.context.selected_objects[0]
@@ -218,21 +193,25 @@ class blender_driver(driver):
             curve.data.render_resolution_u = 2
             
         poly = []
+        lastPoint = []
         layers = []
         this_layer = []
         counter = 1
         global thing
         for i in self.data:
             if isinstance(i,move):
-                #print(i.point)
                 poly.append(i.point)
             if isinstance(i,tool_off):
-                if len(poly) > 0:
+                poly.insert(0,lastPoint)    #Prepend the poly with the last point before the extruder was turned on
+                if len(poly) > 1:           #A poly is only a poly if it has more than one point!
                     counter += 1
-                    print('creating poly ' + str(counter))
+                    print('Creating poly ' + str(counter))
                     pobj = create_poly(poly,counter)
                     this_layer.append(pobj)
+                else:                       #This is not a poly! Discard!
+                    print('Discarding bad poly')
                 poly = []
+                lastPoint = i.point         #Save this point, it might become the start of the next poly
             if isinstance(i,layer):
                 print('layer '+str(len(layers)))
                 layers.append(this_layer)
@@ -276,6 +255,8 @@ class blender_driver(driver):
 
 
 class machine:
+    
+    extruder = False
 
     def __init__(self,axes):
         self.axes = axes
@@ -330,17 +311,18 @@ class machine:
         pos = {}
         for i in self.axes:
             pos[i] = 0
-            self.cur[i] = 0
-        for i in self.data:
-            i=i.strip()
-            print( "Parsing Gcode line ", i)   
-            #print(pos)
+            self.cur[i] = 0 #init
+        for i in self.data: #get data
+            i=i.strip() #clean (Is there a better way?)
+            print( "Parsing Gcode line ", i)
+            #print('pos: ' + pos)
             tmp = i.split()
             command = tmp[0][0]
             com_type = tmp[0][1:]
             if command in codes:
                 if com_type in codes[command]:
-                    #print('good =>'+command+com_type)
+                    print('good com =>'+command+com_type)
+                    
                     for j in tmp[1:]:
                         axis = j[0]
                         if axis == ';':
@@ -355,12 +337,24 @@ class machine:
                             self.cur[axis] = val
                     # create action object
                     #print(pos)
-                    if (pos['E'] == 0):
+                    if com_type == '101':
+                        machine.extruder = True
+                        print('Extruder ON')
+                
+                    elif com_type == '103':
+                        machine.extruder = False
+                        print('Extruder OFF')
+                            
+                    elif (machine.extruder == False):
                         act = tool_off(pos)
+                        print('made move with extruder OFF')
+                        self.commands.append(act)
                     else:
                         act = codes[command][com_type](pos)
-                    #print(act)
-                    self.commands.append(act)
+                        print('made move with extruder ON')
+                        self.commands.append(act)
+                #print('act command: ' + act)
+                    
                     #if isinstance(act,move):
                         #print(act.coord())
                 else:
@@ -371,11 +365,11 @@ class machine:
                 
                 print(' line does not have a G/M/T Command '+ str(command))
                 #break
-        self.commands.append(tool_off(pos))
+#self.commands.append(tool_off(pos))
 
 def import_gcode(file_name):
     print('hola')
-    m = machine(['X','Y','Z','E'])
+    m = machine(['X','Y','Z'])
     m.import_file(file_name)
     m.process()
     d = blender_driver()
@@ -475,7 +469,7 @@ class IMPORT_OT_gcode(bpy.types.Operator):
         #theCircleRes = self.properties.circleResolution
         #theCodec = self.properties.codec
 
-        import_gcode(self.properties.filepath)
+        import_gcode(self.filepath)
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -484,7 +478,7 @@ class IMPORT_OT_gcode(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
 def menu_func(self, context):
-    self.layout.operator(IMPORT_OT_gcode.bl_idname, text="Reprap GCode (.gcode)").filepath = "*.gcode"
+    self.layout.operator(IMPORT_OT_gcode.bl_idname, text="Reprap GCode (.gcode)", icon='PLUGIN')
 
 def register():
     bpy.utils.register_module(__name__)
