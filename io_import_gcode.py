@@ -185,7 +185,7 @@ def create_poly(verts,counter):
     scene = bpy.context.scene
     newCurve = bpy.data.curves.new(name, type = 'CURVE')
     
-    newSpline = newCurve.splines.new('BEZIER')
+    newSpline = newCurve.splines.new('POLY')
     newSpline.points.add(float((len(pv)/4) - 1))
     newSpline.points.foreach_set('co',pv)
     
