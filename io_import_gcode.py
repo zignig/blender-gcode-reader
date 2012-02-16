@@ -87,6 +87,18 @@ class tool_off:
         p.append(self.pos['Z'])
         self.point = p
 
+class setLayerHeight:
+    def __init__(self,val):
+        print('Got layer height: ')
+        print(val)
+        pass
+
+class setExtrusionWidth:
+    def __init__(self,val):
+        print('Got extrusion width')
+        print(val)
+        pass
+
 class layer:
     def __init__(self):
         print('layer')
@@ -110,7 +122,26 @@ class undef:
 
 
 codes = {
+    '(':{
+        '</surroundingLoop>)' : undef,
+        '<surroundingLoop>)' : undef,
+        '<boundaryPoint>' : undef,
+        '<loop>)' : undef,
+        '</loop>)' : undef,
+        '<layer>)' : setLayerHeight,
+        '</layer>)' : undef,
+        '<layer>' : undef,
+        '<layerThickness>' : setLayerHeight,
+        '</layerThickness>)' : undef,
+        '<perimeter>)' : undef,
+        '</perimeter>)' : undef, 
+        '<bridgelayer>)' : undef,
+        '</bridgelayer>)' : undef,
+        '</extrusion>)' : undef,
+        '<perimeterWidth>' : setExtrusionWidth,
+        '</perimeterWidth>)' : undef
     
+    },    
     'G':{
         '0': move,
         '1': move,
@@ -257,6 +288,8 @@ class blender_driver(driver):
 class machine:
     
     extruder = False
+    
+    extrusionSize = []
 
     def __init__(self,axes):
         self.axes = axes
@@ -337,35 +370,42 @@ class machine:
                             self.cur[axis] = val
                     # create action object
                     #print(pos)
-                    if com_type == '101':
-                        machine.extruder = True
-                        print('Extruder ON')
-                
-                    elif com_type == '103':
-                        machine.extruder = False
-                        print('Extruder OFF')
-                            
-                    elif (machine.extruder == False):
-                        act = tool_off(pos)
-                        print('made move with extruder OFF')
-                        self.commands.append(act)
-                    else:
-                        act = codes[command][com_type](pos)
-                        print('made move with extruder ON')
-                        self.commands.append(act)
-                #print('act command: ' + act)
                     
-                    #if isinstance(act,move):
-                        #print(act.coord())
+                    if (command != '('):
+                        #We have a GCode (Not a skeinforge command)
+                        if com_type == '101':
+                            machine.extruder = True
+                            print('Extruder ON')
+                    
+                        elif com_type == '103':
+                            machine.extruder = False
+                            print('Extruder OFF')
+                                
+                        elif (machine.extruder == False):
+                            act = tool_off(pos)
+                            print('made move with extruder OFF')
+                            self.commands.append(act)
+                        else:
+                            act = codes[command][com_type](pos)
+                            print('made move with extruder ON')
+                            self.commands.append(act)
+                    else:
+                        #We have a skeinforge command
+                        codes [command] [com_type] (tmp[2])
+
                 else:
                     print(i)
                     print(' G/M/T Code for this line is unknowm ' + com_type)
-                    #break
+                    
+                #elif commmand[0] in codes: #We got a probable skeinforge command!
+                        #if command[1:] in codes [command[0]]:
+                        #We did get a skeinforge command!
+                        #codes command[0] command[1: ] (pos)
+                        #print('Got a skeinforge command!')
+            
             else:
-                
                 print(' line does not have a G/M/T Command '+ str(command))
-                #break
-#self.commands.append(tool_off(pos))
+
 
 def import_gcode(file_name):
     print('hola')
