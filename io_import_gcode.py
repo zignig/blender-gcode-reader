@@ -220,13 +220,14 @@ class blender_driver(driver):
             bpy.ops.curve.primitive_bezier_circle_add()
             curve = bpy.context.selected_objects[0]
             #Get the extrusion width and height from our cached values (taken from skeinforge comments in our GCode file)
-            curve.dimensions = [float(machine.extrusion_width),float(machine.extrusion_height),0]
+            curve.dimensions = [float(machine.extrusion_width)*2,float(machine.extrusion_height),0]
             curve.name = 'profile'
             curve.data.resolution_u = 2
             curve.data.render_resolution_u = 2
             
         poly = []
-        lastPoint = []
+        endingPoint = []
+        startingPoint = []
         layers = []
         this_layer = []
         counter = 1
@@ -234,9 +235,16 @@ class blender_driver(driver):
         for i in self.data:
             if isinstance(i,move):
                 poly.append(i.point)
+                endingPoint = i.point
+            
             if isinstance(i,tool_off):
-                poly.insert(0,lastPoint)    #Prepend the poly with the last point before the extruder was turned on
-                if len(poly) > 1:           #A poly is only a poly if it has more than one point!
+                
+                if len(poly) > 0:#A poly is only a poly if it has more than one point!
+                    
+                    #poly.append(endingPoint) #make two starting and ending points to try and straighten out some of polyline's wierdness
+                    
+                    poly.insert(0,startingPoint) #Prepend the poly with the last point before the extruder was turned on
+
                     counter += 1
                     print('Creating poly ' + str(counter))
                     pobj = create_poly(poly,counter)
@@ -244,7 +252,7 @@ class blender_driver(driver):
                 else:                       #This is not a poly! Discard!
                     print('Discarding bad poly')
                 poly = []
-                lastPoint = i.point         #Save this point, it might become the start of the next poly
+                startingPoint = i.point         #Save this point, it might become the start of the next poly
             if isinstance(i,layer):
                 print('layer '+str(len(layers)))
                 layers.append(this_layer)
