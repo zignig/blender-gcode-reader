@@ -54,6 +54,7 @@ __version__ = '.'.join([str(s) for s in bl_info['version']])
 import string,os
 import bpy
 import mathutils
+import math
 
 
 class tool:
@@ -195,6 +196,40 @@ def create_poly(verts,counter):
     new_obj = bpy.data.objects.new(name, newCurve) # object
     scene.objects.link(new_obj) # place in active scene
     return new_obj
+
+def addArc(Verts):
+    #Takes the verts for a polyline and then adds verts on either side of the original verts to create a sort of 'arc'
+    #Should help prevent the polyline from doing stupid things like kinking or twisting
+    vertArray = []
+    
+    for index, vert in enumerate(Verts):
+        #Place first vert into list
+        vertArray.append(vert)
+        
+        if (index < len(Verts)-1): #Is this not the last vert in the polyline?
+            #Do arc stuff
+            
+            #Peek at the next vert
+            peekVert = Verts[index+1]
+        
+            #Calculate slope (Rise over run)
+            slope = float(peekVert[1]-vert[1]/peekVert[0]-vert[0])
+            distance = 0.2
+            
+            xOffset = math.sqrt(math.pow(distance,2) / (math.pow(slope,2) + 1))
+        
+            yOffset = math.sqrt((math.pow(slope,2) * math.pow(distance,2))/(math.pow(slope,2) + 1))
+        
+            arcPoint1 = [vert[0]+xOffset, vert[1]+yOffset, vert[2]]
+        
+            arcPoint2 = [peekVert[0]-xOffset, peekVert[1]-yOffset, peekVert[2]]
+            
+            vertArray.append(arcPoint1)
+            vertArray.append(arcPoint2)
+    
+    
+    return vertArray
+
     
 class blender_driver(driver):
      def __init__(self):
@@ -220,7 +255,7 @@ class blender_driver(driver):
             bpy.ops.curve.primitive_bezier_circle_add()
             curve = bpy.context.selected_objects[0]
             #Get the extrusion width and height from our cached values (taken from skeinforge comments in our GCode file)
-            curve.dimensions = [float(machine.extrusion_width)*2,float(machine.extrusion_height),0]
+            curve.dimensions = [float(machine.extrusion_width),float(machine.extrusion_height),0]
             curve.name = 'profile'
             curve.data.resolution_u = 2
             curve.data.render_resolution_u = 2
@@ -244,10 +279,13 @@ class blender_driver(driver):
                     #poly.append(endingPoint) #make two starting and ending points to try and straighten out some of polyline's wierdness
                     
                     poly.insert(0,startingPoint) #Prepend the poly with the last point before the extruder was turned on
-
+                    
+                    print('Adding arc points to poly')
+                    polyArc = addArc(poly)
+                    
                     counter += 1
                     print('Creating poly ' + str(counter))
-                    pobj = create_poly(poly,counter)
+                    pobj = create_poly(polyArc,counter)
                     this_layer.append(pobj)
                 else:                       #This is not a poly! Discard!
                     print('Discarding bad poly')
