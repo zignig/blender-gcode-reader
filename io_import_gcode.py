@@ -216,11 +216,14 @@ def addArc(Verts):
             #perhaps the format is Y,X,Z
             #x=0, y=1, z=2
             
-            distance = 0.2
+            distance = 0.05
             
             if((peekVert[0]-vert[0]) == 0):
                 #interpolated verts will be straight along the y axis
                 #Assume that the yOffset will be the distance, xOffset will be 0
+                xOffset = 0
+                yOffset = distance
+            
             else:
                 #Calculate slope (Rise over run)
                 slope = (peekVert[1]-vert[1])/(peekVert[0]-vert[0])
@@ -231,34 +234,57 @@ def addArc(Verts):
         
                 yOffset = math.sin(radians)*distance
         
-                arcPoint1 = [vert[0]-xOffset, vert[1]+yOffset, vert[2]]
-
-                arcPoint2 = [peekVert[0]+xOffset, peekVert[1]-yOffset, peekVert[2]]
-                
-                #xOffset = math.sqrt(math.pow(distance,2) / (math.pow(slope,2) + 1))
+            arcPoint1 = []
+            arcPoint2 = []
             
-                #yOffset = math.sqrt((math.pow(slope,2) * math.pow(distance,2))/(math.pow(slope,2) + 1))
-            
-                #arcPoint1 = [vert[0]+xOffset, vert[1]+yOffset, vert[2]]
-            
-                #arcPoint2 = [peekVert[0]-xOffset, peekVert[1]-yOffset, peekVert[2]]
-                
-                print('#######Interpolating points########')
-        
-                print('Point1 X'+str(vert[0])+' Y'+str(vert[1])+' Z'+str(vert[2]))
-                
-                print('Point2 X'+str(arcPoint1[0])+' Y'+str(arcPoint1[1])+' Z'+str(arcPoint1[2]))
-                
-                print('Point3 X'+str(arcPoint2[0])+' Y'+str(arcPoint2[1])+' Z'+str(arcPoint2[2]))
+            #if the starting loc is smaller than the ending loc
+            #
+            if (vert[0] < peekVert[0]):
+                arcPoint1.append(vert[0]+xOffset)
+                arcPoint2.append(peekVert[0]-xOffset)
+            else:
+                arcPoint1.append(vert[0]-xOffset)
+                arcPoint2.append(peekVert[0]+xOffset)
                     
-                print('Point4 X'+str(peekVert[0])+' Y'+str(peekVert[1])+' Z'+str(peekVert[2]))
-                
-                print('xOffset'+str(xOffset)+' yOffset'+str(yOffset))
-                
-                print('#######Done interpolating points########')
+            if (vert[1] < peekVert[1]):
+                arcPoint1.append(vert[1]+yOffset)
+                arcPoint2.append(peekVert[1]-yOffset)
+            else:
+                arcPoint1.append(vert[1]-yOffset)
+                arcPoint2.append(peekVert[1]+yOffset)
+                    
+            arcPoint1.append(vert[2])
+            arcPoint2.append(peekVert[2])
+                    
+                    
+            #arcPoint1 = [vert[0]+xOffset, vert[1]+yOffset, vert[2]]
+
+            #arcPoint2 = [peekVert[0]-xOffset, peekVert[1]-yOffset, peekVert[2]]
+            
+            #xOffset = math.sqrt(math.pow(distance,2) / (math.pow(slope,2) + 1))
         
-                vertArray.append(arcPoint1)
-                vertArray.append(arcPoint2)
+            #yOffset = math.sqrt((math.pow(slope,2) * math.pow(distance,2))/(math.pow(slope,2) + 1))
+        
+            #arcPoint1 = [vert[0]+xOffset, vert[1]+yOffset, vert[2]]
+        
+            #arcPoint2 = [peekVert[0]-xOffset, peekVert[1]-yOffset, peekVert[2]]
+            
+            print('#######Interpolating points########')
+    
+            print('Point1 X'+str(vert[0])+' Y'+str(vert[1])+' Z'+str(vert[2]))
+            
+            print('Point2 X'+str(arcPoint1[0])+' Y'+str(arcPoint1[1])+' Z'+str(arcPoint1[2]))
+            
+            print('Point3 X'+str(arcPoint2[0])+' Y'+str(arcPoint2[1])+' Z'+str(arcPoint2[2]))
+                
+            print('Point4 X'+str(peekVert[0])+' Y'+str(peekVert[1])+' Z'+str(peekVert[2]))
+            
+            print('xOffset'+str(xOffset)+' yOffset'+str(yOffset))
+            
+            print('#######Done interpolating points########')
+    
+            vertArray.append(arcPoint1)
+            vertArray.append(arcPoint2)
     
     return vertArray
 
