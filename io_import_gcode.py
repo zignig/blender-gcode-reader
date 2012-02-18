@@ -21,13 +21,13 @@
 import bpy 
 
 bl_info = {
-    'name': 'Import GCode for FDM .gcode',
+    'name': 'Import GCode from Makerbot or Reprap',
     'author': 'Simon Kirkby',
-    'version': (0,0,4),
+    'version': (0,0,5),
     'blender': (2, 5, 6),
     'api': 32738,
     'location': 'File > Import-Export > Gcode',
-    'description': 'Import and visualize gcode files for Makerbot printers (.gcode)',
+    'description': 'Import and visualize gcode files generated for Makerbot printers (.gcode)',
     "wiki_url": "",
     "tracker_url": "",
     'category': 'Import-Export'}
@@ -49,7 +49,11 @@ __version__ = '.'.join([str(s) for s in bl_info['version']])
 # Modified by Winter Guerra (XtremD) on February 16th, 2012
 # to make the script compatable with stock Makerbot GCode files
 # and grab all nozzle extrusion information from Skeinforge's machine output
-# WARNING: This script no longer works with stock 5D GCode! (Would somebody please integrate the two versions together?)
+# WARNING: This script no longer works with stock 5D GCode! (Can somebody please integrate the two versions together?)
+
+# A big shout-out goes to my friend Jon Spyreas for helping me block-out the maths needed in the "addArc" subroutine
+# Thanks a million dude!
+# Github branch link: https://github.com/xtremd/blender-gcode-reader
 
 import string,os
 import bpy
@@ -200,8 +204,13 @@ def create_poly(verts,counter):
 def addArc(Verts):
     #Takes the verts for a polyline and then adds verts on either side of the original verts to create a sort of 'arc'
     #Should help prevent the polyline from doing stupid things like kinking or twisting
+    
+    # A big shout-out goes to my friend Jon Spyreas for helping me block-out the maths needed in this subroutine
+    # Thanks a million dude!
+    
     vertArray = []
     
+    #Take the list of verts to process
     for index, vert in enumerate(Verts):
         #Place first vert into list
         vertArray.append(vert)
@@ -213,10 +222,8 @@ def addArc(Verts):
             #Peek at the next vert
             peekVert = Verts[index+1]
             
-            #perhaps the format is Y,X,Z
-            #x=0, y=1, z=2
-            
-            distance = 0.05
+            #Add arcpoints this far apart (in mm) on either side of the polyline point grabbed from the GCode file 
+            distance = 0.05 
             
             if((peekVert[0]-vert[0]) == 0):
                 #interpolated verts will be straight along the y axis
@@ -227,62 +234,61 @@ def addArc(Verts):
             else:
                 #Calculate slope (Rise over run)
                 slope = (peekVert[1]-vert[1])/(peekVert[0]-vert[0])
-        
+                #Get angle relative to X axis
                 radians = math.atan(slope) #Outputs radians
                 
+                #Calculate the x and y offsets
                 xOffset = math.cos(radians)*distance
-        
                 yOffset = math.sin(radians)*distance
         
+            #Make sure that the offsets are positive (this makes for easier arithmetic logic)
+            xOffset = math.fabs(xOffset)
+            yOffset = math.fabs(yOffset)
+            
+            #Init arcpoints
             arcPoint1 = []
             arcPoint2 = []
             
             #if the starting loc is smaller than the ending loc
-            #
+            #We want the points to gradually increase
             if (vert[0] < peekVert[0]):
                 arcPoint1.append(vert[0]+xOffset)
                 arcPoint2.append(peekVert[0]-xOffset)
             else:
+                #gradually decrease
                 arcPoint1.append(vert[0]-xOffset)
                 arcPoint2.append(peekVert[0]+xOffset)
                     
             if (vert[1] < peekVert[1]):
+                #gradually increase
                 arcPoint1.append(vert[1]+yOffset)
                 arcPoint2.append(peekVert[1]-yOffset)
             else:
+                #gradually decrease
                 arcPoint1.append(vert[1]-yOffset)
                 arcPoint2.append(peekVert[1]+yOffset)
                     
+            #Add the current Z position to the new arcpoints
             arcPoint1.append(vert[2])
             arcPoint2.append(peekVert[2])
-                    
-                    
-            #arcPoint1 = [vert[0]+xOffset, vert[1]+yOffset, vert[2]]
-
-            #arcPoint2 = [peekVert[0]-xOffset, peekVert[1]-yOffset, peekVert[2]]
-            
-            #xOffset = math.sqrt(math.pow(distance,2) / (math.pow(slope,2) + 1))
-        
-            #yOffset = math.sqrt((math.pow(slope,2) * math.pow(distance,2))/(math.pow(slope,2) + 1))
-        
-            #arcPoint1 = [vert[0]+xOffset, vert[1]+yOffset, vert[2]]
-        
-            #arcPoint2 = [peekVert[0]-xOffset, peekVert[1]-yOffset, peekVert[2]]
-            
-            print('#######Interpolating points########')
+             
     
-            print('Point1 X'+str(vert[0])+' Y'+str(vert[1])+' Z'+str(vert[2]))
+#            ######DEBUG OUTPUT CODE######
+#            print('#######Interpolating points########')
+#    
+#            print('Point1 X'+str(vert[0])+' Y'+str(vert[1])+' Z'+str(vert[2]))
+#            
+#            print('Point2 X'+str(arcPoint1[0])+' Y'+str(arcPoint1[1])+' Z'+str(arcPoint1[2]))
+#            
+#            print('Point3 X'+str(arcPoint2[0])+' Y'+str(arcPoint2[1])+' Z'+str(arcPoint2[2]))
+#                
+#            print('Point4 X'+str(peekVert[0])+' Y'+str(peekVert[1])+' Z'+str(peekVert[2]))
+#            
+#            print('xOffset'+str(xOffset)+' yOffset'+str(yOffset))
+#            
+#            print('#######Done interpolating points########')
             
-            print('Point2 X'+str(arcPoint1[0])+' Y'+str(arcPoint1[1])+' Z'+str(arcPoint1[2]))
-            
-            print('Point3 X'+str(arcPoint2[0])+' Y'+str(arcPoint2[1])+' Z'+str(arcPoint2[2]))
-                
-            print('Point4 X'+str(peekVert[0])+' Y'+str(peekVert[1])+' Z'+str(peekVert[2]))
-            
-            print('xOffset'+str(xOffset)+' yOffset'+str(yOffset))
-            
-            print('#######Done interpolating points########')
-    
+            #Add the arcpoints to the vert list
             vertArray.append(arcPoint1)
             vertArray.append(arcPoint2)
     
