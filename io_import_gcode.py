@@ -181,6 +181,7 @@ def vertsToPoints(Verts):
     for v in Verts:
         vertArray += v
         vertArray.append(0)
+        #vertArray.append(1) #If using NURBS, must be 1
     return vertArray
 
 def create_poly(verts,counter):
@@ -190,13 +191,16 @@ def create_poly(verts,counter):
     scene = bpy.context.scene
     newCurve = bpy.data.curves.new(name, type = 'CURVE')
     
-    newSpline = newCurve.splines.new('POLY')
-    newSpline.points.add(float((len(pv)/4) - 1))
+    newSpline = newCurve.splines.new(type='POLY')
+    newSpline.points.add((len(pv)*0.25) - 1)
     newSpline.points.foreach_set('co',pv)
+    #newSpline.use_endpoint_u = True #Too CPU intensive!
+    
+    #newspline.order_u = 4
     
     # create object with newCurve
-    newCurve.bevel_object = bpy.data.objects['profile']
     newCurve.dimensions = '3D'
+    newCurve.bevel_object = bpy.data.objects['profile']
     new_obj = bpy.data.objects.new(name, newCurve) # object
     scene.objects.link(new_obj) # place in active scene
     return new_obj
@@ -216,14 +220,12 @@ def addArc(Verts):
         vertArray.append(vert)
         
         if (index < len(Verts)-1): #Is this not the last vert in the polyline?
-            #Do arc stuff
-            
-            
+            #Do arc stuffcd
             #Peek at the next vert
             peekVert = Verts[index+1]
             
             #Add arcpoints this far apart (in mm) on either side of the polyline point grabbed from the GCode file 
-            distance = 0.05 
+            distance = 0.02
             
             if((peekVert[0]-vert[0]) == 0):
                 #interpolated verts will be straight along the y axis
@@ -269,9 +271,12 @@ def addArc(Verts):
                 arcPoint2.append(peekVert[1]+yOffset)
                     
             #Add the current Z position to the new arcpoints
+            #Use the starting point's Z pos as it should be on the same plane as the rest of the verts added
+            #This looks wierd but actualy fixes the bug that happens where the last segment of the poly is a
+            #move on the Z axis.
+        
             arcPoint1.append(vert[2])
-            arcPoint2.append(peekVert[2])
-             
+            arcPoint2.append(vert[2]) 
     
 #            ######DEBUG OUTPUT CODE######
 #            print('#######Interpolating points########')
@@ -350,6 +355,8 @@ class blender_driver(driver):
                     counter += 1
                     print('Creating poly ' + str(counter))
                     pobj = create_poly(polyArc,counter)
+                    #pobj = create_poly(poly,counter)
+                        
                     this_layer.append(pobj)
                 else:                       #This is not a poly! Discard!
                     print('Discarding bad poly')
