@@ -220,12 +220,22 @@ def addArc(Verts):
         vertArray.append(vert)
         
         if (index < len(Verts)-1): #Is this not the last vert in the polyline?
-            #Do arc stuffcd
+            #Do arc stuff
+            
             #Peek at the next vert
             peekVert = Verts[index+1]
             
             #Add arcpoints this far apart (in mm) on either side of the polyline point grabbed from the GCode file 
             distance = 0.02
+            doubleDistance = distance*2
+            
+            #SANITY CHECK!
+            #Check that the next vert is AT LEAST more than 2 x the "distance" away.
+            if (math.pow((peekVert[1]-vert[1]),2) + math.pow((peekVert[0]-vert[0]),2) <= math.pow(doubleDistance,2)):
+                #The verts are too close together! Argh!
+                #Let's not mess with these verts, they look pretty scary.
+                print('Discarding arcpoints; verts too close together.')
+                continue
             
             if((peekVert[0]-vert[0]) == 0):
                 #interpolated verts will be straight along the y axis
