@@ -485,27 +485,28 @@ class machine:
             tmp = i.split()
             command = tmp[0][0]
             com_type = tmp[0][1:]
+            
             if command in codes:
                 if com_type in codes[command]:
-                    print('good com =>'+command+com_type)
-                    
-                    for j in tmp[1:]:
-                        axis = j[0]
-                        if axis == ';':
-                            # ignore comments
-                            break
-                        if axis in self.axes:
-                            val = float(j[1:])
-                            pos[axis] = val
-                            if self.cur['Z'] != pos['Z']:
-                                self.commands.append(layer())
-                                self.commands.append(tool_off(pos))
-                            self.cur[axis] = val
-                    # create action object
-                    #print(pos)
-                    
                     if (command != '('):
                         #We have a GCode (Not a skeinforge command)
+                        #Run the usual checks
+                        print('good com =>'+command+com_type)
+                    
+                        for j in tmp[1:]:
+                            axis = j[0]
+                            if axis == ';':
+                                # ignore comments
+                                break
+                            if axis in self.axes:
+                                val = float(j[1:])
+                                pos[axis] = val
+                                if self.cur['Z'] != pos['Z']:
+                                    self.commands.append(layer())
+                                    self.commands.append(tool_off(pos))
+                                self.cur[axis] = val
+                        # create action object
+                        #print(pos)
                         if com_type == '101':
                             machine.extruder = True
                             print('Extruder ON')
@@ -524,8 +525,9 @@ class machine:
                             self.commands.append(act)
                     else:
                         #We have a skeinforge command
+                        #Run the skeinforge command
+                        print('Good Skeinforge com => '+command+com_type)
                         codes [command] [com_type] (tmp[1])
-
                 else:
                     print(i)
                     print(' G/M/T Code for this line is unknowm ' + com_type)
