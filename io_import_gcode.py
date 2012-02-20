@@ -109,7 +109,7 @@ class setExtrusionWidth:
 
 class layer:
     def __init__(self):
-        print('layer')
+        print('New layer')
         pass
 
 class setting:
@@ -136,7 +136,7 @@ codes = {
         '<boundaryPoint>' : undef,
         '<loop>)' : undef,
         '</loop>)' : undef,
-        '<layer>)' : setLayerHeight,
+        '<layer>)' : undef, #Just changed
         '</layer>)' : undef,
         '<layer>' : undef,
         '<layerThickness>' : setLayerHeight,
@@ -422,6 +422,8 @@ class machine:
     extruder = False
     extrusion_height = 5
     extrusion_width = 5
+    
+    printStarted = False
 
     def __init__(self,axes):
         self.axes = axes
@@ -475,6 +477,8 @@ class machine:
     def process(self):
         # zero up the machine
         pos = {}
+        self.commands.append(layer()) #Make a new first layer
+        
         for i in self.axes:
             pos[i] = 0
             self.cur[i] = 0 #init
@@ -501,10 +505,23 @@ class machine:
                             if axis in self.axes:
                                 val = float(j[1:])
                                 pos[axis] = val
-                                if self.cur['Z'] != pos['Z']:
-                                    self.commands.append(layer())
-                                    self.commands.append(tool_off(pos))
-                                self.cur[axis] = val
+#                                if machine.buildStarted == True: #HACK! If we're in a build...
+#                                    
+#                                    if self.cur['Z'] < pos['Z']:
+#                                        #This should never happen. The GCode just told us to move to a lower position!
+#                                        #GCode generator FAIL!
+#                                        #Throw a tantrum in the log but don't add a ghost layer
+#                                        
+#                                        #NOTE: This may be due to wipe or other commands. Might I suggest some sort of layer reset command?
+#                                        #This line might make the visualizer 'ratchet' up unless a reset command is implemented.
+#                                        print('!!Just recieved a move with a Z height LESS than a previous move! You trying to make the printer DIG man??')
+#                                        print('Discarding idiotic layer command')
+#                                    
+#                                    elif self.cur['Z'] != pos['Z']:
+#                                        self.commands.append(layer())
+#                                        self.commands.append(tool_off(pos))
+#                                        self.cur[axis] = val
+                                            
                         # create action object
                         #print(pos)
                         if com_type == '101':
@@ -520,6 +537,25 @@ class machine:
                             print('made move with extruder OFF')
                             self.commands.append(act)
                         else:
+                            #We got an extruded move command!
+                            
+                            #Check if this extrusion is the start of a new layer
+                            if self.cur['Z'] > pos['Z']:
+                                #This should never happen. The GCode just told us to move to a lower position!
+                                #GCode generator FAIL!
+                                #Throw a tantrum in the log but don't add a ghost layer
+                                #                                        
+                                #NOTE: This may be due to wipe or other commands. Might I suggest some sort of layer reset command?
+                                #This line might make the visualizer 'ratchet' up unless a reset command is implemented.
+                                print('!!Just recieved a extrusion move with a Z height LESS than a previous move! You trying to make the printer DIG man??')
+                                print('Discarding idiotic layer command')
+                                                                    
+                            elif self.cur['Z'] != pos['Z']:
+                                self.commands.append(layer())
+                                #self.commands.append(tool_off(pos))
+                                for index in self.axes:
+                                    self.cur[index] = pos[index]
+                            
                             act = codes[command][com_type](pos)
                             print('made move with extruder ON')
                             self.commands.append(act)
