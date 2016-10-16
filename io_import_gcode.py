@@ -483,9 +483,11 @@ class machine:
             pos[i] = 0
             self.cur[i] = 0 #init
         for i in self.data: #get data
-            i=i.strip() #clean (Is there a better way?)
+            i = i.strip() #clean (Is there a better way?)
             print( "Parsing Gcode line ", i)
             #print('pos: ' + pos)
+            if i == '':
+                continue
             tmp = i.split()
             command = tmp[0][0]
             com_type = tmp[0][1:]
