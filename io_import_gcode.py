@@ -60,6 +60,10 @@ import bpy
 import mathutils
 import math
 
+#profile with kernprof
+from line_profiler import LineProfiler  
+profile = LineProfiler()  
+
 
 class tool:
     def __init__(self,name='null tool'):
@@ -314,6 +318,7 @@ class blender_driver(driver):
      def __init__(self):
          driver.__init__(self)
          
+     @profile
      def drive(self):
 
     
@@ -395,20 +400,22 @@ class blender_driver(driver):
         
         s.frame_end = len(layers)
         # hide everything at frame 0
-        s.frame_set(0)
-        
+                
         for i in range(len(layers)):
+            print('setting material/visibility for layer '+str(i)+' of '+str(len(layers)))
             for j in layers[i]:
                 j.hide = True
                 j.hide_render = True
-                j.keyframe_insert("hide")
-                j.keyframe_insert("hide_render")
+                j.keyframe_insert(data_path="hide",frame=0)
+                j.keyframe_insert(data_path="hide_render",frame=0)
                 # assign the material 
                 j.active_material = mt
+                
         
         # go through the layers and make them reappear
         for i in range(len(layers)):
-            print('frame '+str(i))
+            #s.frame_set(i)
+            print('frame '+str(i)+' of '+str(len(layers)))
             for j in layers[i]:
                 j.hide = False
                 j.hide_render = False
@@ -582,6 +589,8 @@ def import_gcode(file_name):
     d.load_data(m.commands)
     d.drive()
     print('finished parsing... done')
+    #dump profiler
+    profile.dump_stats('/tmp/blender_plugin_gcode_reader.prof')
 
 
 DEBUG= False
