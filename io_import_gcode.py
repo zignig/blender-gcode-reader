@@ -395,26 +395,27 @@ class blender_driver(driver):
         
         s.frame_end = len(layers)
         # hide everything at frame 0
-        s.frame_set(0)
-        
+                
         for i in range(len(layers)):
+            print('setting material/visibility for layer '+str(i)+' of '+str(len(layers)))
             for j in layers[i]:
                 j.hide = True
                 j.hide_render = True
-                j.keyframe_insert("hide")
-                j.keyframe_insert("hide_render")
+                j.keyframe_insert(data_path="hide",frame=0)
+                j.keyframe_insert(data_path="hide_render",frame=0)
                 # assign the material 
                 j.active_material = mt
+                
         
         # go through the layers and make them reappear
         for i in range(len(layers)):
-            s.frame_set(i)
-            print('frame '+str(i))
+            #s.frame_set(i)
+            print('frame '+str(i)+' of '+str(len(layers)))
             for j in layers[i]:
                 j.hide = False
                 j.hide_render = False
-                j.keyframe_insert("hide")
-                j.keyframe_insert("hide_render")
+                j.keyframe_insert(data_path="hide",frame=i)
+                j.keyframe_insert(data_path="hide_render",frame=i)
 
 
 class machine:
