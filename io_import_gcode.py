@@ -408,13 +408,12 @@ class blender_driver(driver):
         
         # go through the layers and make them reappear
         for i in range(len(layers)):
-            s.frame_set(i)
             print('frame '+str(i))
             for j in layers[i]:
                 j.hide = False
                 j.hide_render = False
-                j.keyframe_insert("hide")
-                j.keyframe_insert("hide_render")
+                j.keyframe_insert(data_path="hide",frame=i)
+                j.keyframe_insert(data_path="hide_render",frame=i)
 
 
 class machine:
