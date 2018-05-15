@@ -60,10 +60,6 @@ import bpy
 import mathutils
 import math
 
-#profile with kernprof
-from line_profiler import LineProfiler  
-profile = LineProfiler()  
-
 
 class tool:
     def __init__(self,name='null tool'):
@@ -318,7 +314,6 @@ class blender_driver(driver):
      def __init__(self):
          driver.__init__(self)
          
-     @profile
      def drive(self):
 
     
@@ -589,8 +584,6 @@ def import_gcode(file_name):
     d.load_data(m.commands)
     d.drive()
     print('finished parsing... done')
-    #dump profiler
-    profile.dump_stats('/tmp/blender_plugin_gcode_reader.prof')
 
 
 DEBUG= False
